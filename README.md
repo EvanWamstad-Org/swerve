@@ -1,3 +1,9 @@
+# swerve
+
+A separate experimental app fork of [nightscout/Trio](https://github.com/nightscout/Trio), developed with Codex and Claude Code. Manual browser builds distribute to the separate `swerve` TestFlight app. See [project setup and boundaries](SWERVE.md).
+
+---
+
 # Trio &nbsp;&nbsp;&nbsp;[![Discord](https://img.shields.io/discord/1020905149037813862?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.triodocs.org)
 
 ## Introduction
