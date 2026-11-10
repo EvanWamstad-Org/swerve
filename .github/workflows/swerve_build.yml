@@ -1,4 +1,4 @@
-name: 3. Build Swerve and upload to TestFlight
+name: 4. Build Swerve and upload to TestFlight
 on:
   workflow_dispatch:
 permissions:
@@ -31,6 +31,8 @@ jobs:
         run: sudo xcode-select --switch /Applications/Xcode_26.5.app/Contents/Developer
       - name: Install dependencies
         run: bundle install
+      - name: Create Swerve certificates and provisioning profiles
+        run: bundle exec fastlane certs
       - name: Build and archive Swerve
         run: bundle exec fastlane build_trio
       - name: Verify archived app is Swerve
