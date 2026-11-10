@@ -1,0 +1,29 @@
+name: 2. Add Swerve identifiers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: swerve-signing-and-build
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/swerve_validate.yml
+    secrets: inherit
+  identifiers:
+    if: github.repository == 'EvanWamstad-Org/swerve'
+    needs: validate
+    runs-on: macos-26
+    env:
+      TEAMID: ${{ secrets.TEAMID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+      FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+      FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install dependencies
+        run: bundle install
+      - name: Register only Swerve identifiers
+        run: bundle exec fastlane identifiers

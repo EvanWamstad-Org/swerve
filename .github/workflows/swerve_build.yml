@@ -1,0 +1,52 @@
+name: 3. Build Swerve and upload to TestFlight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: swerve-signing-and-build
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/swerve_validate.yml
+    secrets: inherit
+  build:
+    if: github.repository == 'EvanWamstad-Org/swerve'
+    needs: validate
+    runs-on: macos-26
+    env:
+      TEAMID: ${{ secrets.TEAMID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+      FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+      FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+    steps:
+      - name: Checkout Swerve and pinned submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Select Xcode
+        run: sudo xcode-select --switch /Applications/Xcode_26.5.app/Contents/Developer
+      - name: Install dependencies
+        run: bundle install
+      - name: Build and archive Swerve
+        run: bundle exec fastlane build_trio
+      - name: Verify archived app is Swerve
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -q Trio.ipa -d "$RUNNER_TEMP/swerve-ipa"
+          plist=$(find "$RUNNER_TEMP/swerve-ipa/Payload" -maxdepth 2 -name Info.plist -print -quit)
+          test -n "$plist"
+          actual=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$plist")
+          test "$actual" = "org.nightscout.${TEAMID}.swerve"
+      - name: Upload only Swerve to TestFlight
+        run: bundle exec fastlane release
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: swerve-build-logs
+          path: buildlog

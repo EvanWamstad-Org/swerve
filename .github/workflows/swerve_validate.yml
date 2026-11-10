@@ -1,0 +1,50 @@
+name: 1. Validate Swerve and prepare isolated signing
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  signing-store:
+    if: github.repository == 'EvanWamstad-Org/swerve'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+    steps:
+      - name: Validate secrets and prepare private Swerve signing store
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in GH_TOKEN TEAMID MATCH_PASSWORD FASTLANE_KEY_ID FASTLANE_ISSUER_ID FASTLANE_KEY; do
+            test -n "${!key}" || { echo "::error::Missing $key"; exit 1; }
+          done
+          [[ "$TEAMID" =~ ^[A-Z0-9]{10}$ ]]
+          printf '%s' "$FASTLANE_KEY" | openssl pkcs8 -nocrypt -out /dev/null
+          target="EvanWamstad-Org/Swerve-Match-Secrets"
+          if ! gh repo view "$target" --json isPrivate >/dev/null 2>&1; then
+            gh repo create "$target" --private
+          fi
+          test "$(gh repo view "$target" --json isPrivate --jq .isPrivate)" = true
+          gh auth setup-git
+          # Read existing encrypted certificate files only. Never copy Trio profiles,
+          # write to the original store, or revoke/generate team certificates here.
+          gh repo clone EvanWamstad-Org/Match-Secrets "$RUNNER_TEMP/source-signing" -- --depth 1
+          gh repo clone "$target" "$RUNNER_TEMP/swerve-signing"
+          cd "$RUNNER_TEMP/swerve-signing"
+          if [ ! -d certs/distribution ]; then
+            test -d "$RUNNER_TEMP/source-signing/certs/distribution"
+            mkdir -p certs
+            cp -R "$RUNNER_TEMP/source-signing/certs/distribution" certs/
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add certs/distribution
+            git commit -m 'Seed Swerve with existing encrypted distribution certificate'
+            git push origin HEAD:main
+          fi
+          echo 'Swerve signing store is private; original store was read only.' >> "$GITHUB_STEP_SUMMARY"
